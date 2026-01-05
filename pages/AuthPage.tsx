@@ -43,6 +43,12 @@ const AuthPage: React.FC = () => {
     }
   };
 
+  const generateUniqueUid = () => {
+    const randomPart = Math.random().toString(36).substr(2, 5);
+    const timePart = Date.now().toString(36).substr(-4);
+    return `${randomPart}-${timePart}`.toUpperCase();
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const users = Store.getUsers();
@@ -63,7 +69,7 @@ const AuthPage: React.FC = () => {
 
       const isFirstUser = users.length === 0;
       const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: generateUniqueUid(),
         username,
         displayName: displayName || username,
         password,
@@ -173,7 +179,7 @@ const AuthPage: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full py-4 rounded-xl font-bold text-white shadow-lg transition transform active:scale-95 bg-pink-primary"
+            className="w-full py-4 rounded-xl font-bold text-white shadow-lg transition transform active:scale-95"
             style={{ backgroundColor: isLogin ? APP_COLORS.pink : APP_COLORS.blue }}
           >
             {isLogin ? 'เข้าสู่ระบบ' : 'สมัครสมาชิกเดี๋ยวนี้'}

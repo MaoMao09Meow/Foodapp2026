@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Store } from '../store';
 import { ChatRoom, ChatMessage, User } from '../types';
-import { Send, Image as ImageIcon, Trash2, ChevronLeft, Search, Plus } from 'lucide-react';
+import { Send, Image as ImageIcon, Trash2, ChevronLeft, Search, Plus, UserPlus, X } from 'lucide-react';
 
 const ChatPage: React.FC = () => {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -10,6 +10,9 @@ const ChatPage: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [currentUser] = useState<User | null>(Store.getCurrentUser());
+  const [showUidSearch, setShowUidSearch] = useState(false);
+  const [uidSearchInput, setUidSearchInput] = useState('');
+  const [searchError, setSearchError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,7 +52,6 @@ const ChatPage: React.FC = () => {
     const allMsgs = Store.getMessages();
     Store.setMessages([...allMsgs, newMessage]);
 
-    // Update Room
     const allRooms = Store.getChats();
     const updatedRooms = allRooms.map(r => r.id === selectedRoom.id ? { 
       ...r, 
@@ -58,7 +60,6 @@ const ChatPage: React.FC = () => {
     } : r);
     Store.setChats(updatedRooms);
 
-    // Notify others
     selectedRoom.participants.forEach(pId => {
       if (pId !== currentUser.id) {
         Store.notify(pId, 'ข้อความใหม่', `${currentUser.displayName || currentUser.username}: ${image ? 'ส่งรูปภาพ' : input}`, 'CHAT');
@@ -66,6 +67,39 @@ const ChatPage: React.FC = () => {
     });
 
     setInput('');
+  };
+
+  const startChatByUid = () => {
+    setSearchError('');
+    if (!uidSearchInput.trim() || !currentUser) return;
+    
+    if (uidSearchInput.trim() === currentUser.id) {
+      setSearchError('ไม่สามารถแชทกับตัวเองได้');
+      return;
+    }
+
+    const targetUser = Store.getUsers().find(u => u.id === uidSearchInput.trim());
+    if (!targetUser) {
+      setSearchError('ไม่พบผู้ใช้ที่ใช้ UID นี้');
+      return;
+    }
+
+    const allChats = Store.getChats();
+    let chat = allChats.find(c => !c.isGroup && c.participants.includes(targetUser.id) && c.participants.includes(currentUser.id));
+    
+    if (!chat) {
+      chat = {
+        id: Math.random().toString(36).substr(2, 9),
+        participants: [currentUser.id, targetUser.id],
+        isGroup: false,
+        lastTimestamp: Date.now()
+      };
+      Store.setChats([chat, ...allChats]);
+    }
+    
+    setSelectedRoom(chat);
+    setShowUidSearch(false);
+    setUidSearchInput('');
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,7 +127,6 @@ const ChatPage: React.FC = () => {
   if (selectedRoom) {
     return (
       <div className="flex flex-col h-full bg-gray-50 fixed inset-0 max-w-md mx-auto z-[60]">
-        {/* Chat Header */}
         <div className="bg-white border-b p-4 flex items-center gap-3 shadow-sm">
           <button onClick={() => setSelectedRoom(null)}><ChevronLeft /></button>
           <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center font-bold text-blue-600 uppercase">
@@ -105,7 +138,6 @@ const ChatPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map(m => {
             const isMe = m.senderId === currentUser?.id;
@@ -120,12 +152,8 @@ const ChatPage: React.FC = () => {
                   <span className={`text-[8px] mt-1 block ${isMe ? 'text-blue-100' : 'text-gray-400'}`}>
                     {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  
                   {isMe && (
-                    <button 
-                      onClick={() => deleteMessage(m.id)}
-                      className="absolute -left-8 top-1/2 -translate-y-1/2 text-red-300 opacity-0 group-hover:opacity-100 transition"
-                    >
+                    <button onClick={() => deleteMessage(m.id)} className="absolute -left-8 top-1/2 -translate-y-1/2 text-red-300 opacity-0 group-hover:opacity-100 transition">
                       <Trash2 size={16} />
                     </button>
                   )}
@@ -135,26 +163,13 @@ const ChatPage: React.FC = () => {
           })}
         </div>
 
-        {/* Input Bar */}
         <div className="bg-white p-4 border-t pb-8 flex items-center gap-2">
           <label className="p-2 text-gray-400 cursor-pointer">
             <ImageIcon size={24} />
             <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
           </label>
-          <input 
-            type="text" 
-            placeholder="พิมพ์ข้อความ..." 
-            className="flex-1 bg-gray-100 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-blue-200"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-          />
-          <button 
-            onClick={() => handleSend()}
-            className="p-3 bg-pink-500 text-white rounded-full shadow-lg shadow-pink-100"
-          >
-            <Send size={20} />
-          </button>
+          <input type="text" placeholder="พิมพ์ข้อความ..." className="flex-1 bg-gray-100 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-blue-200" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} />
+          <button onClick={() => handleSend()} className="p-3 bg-pink-500 text-white rounded-full shadow-lg shadow-pink-100"><Send size={20} /></button>
         </div>
       </div>
     );
@@ -164,9 +179,14 @@ const ChatPage: React.FC = () => {
     <div className="p-4 space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">แชท</h2>
-        <button className="p-2 bg-blue-100 text-blue-600 rounded-full">
-          <Plus size={24} />
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowUidSearch(true)} className="p-2 bg-pink-100 text-pink-600 rounded-full" title="ค้นหาด้วย UID">
+            <UserPlus size={24} />
+          </button>
+          <button className="p-2 bg-blue-100 text-blue-600 rounded-full">
+            <Plus size={24} />
+          </button>
+        </div>
       </div>
 
       <div className="relative">
@@ -176,11 +196,7 @@ const ChatPage: React.FC = () => {
 
       <div className="space-y-2">
         {rooms.map(room => (
-          <div 
-            key={room.id} 
-            onClick={() => setSelectedRoom(room)}
-            className="bg-white p-4 rounded-2xl border flex items-center gap-4 active:bg-gray-50 transition cursor-pointer"
-          >
+          <div key={room.id} onClick={() => setSelectedRoom(room)} className="bg-white p-4 rounded-2xl border flex items-center gap-4 active:bg-gray-50 transition cursor-pointer">
             <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-400 to-blue-600 flex items-center justify-center font-bold text-white text-xl uppercase">
               {getChatTitle(room)[0]}
             </div>
@@ -199,6 +215,32 @@ const ChatPage: React.FC = () => {
           <div className="text-center py-20 text-gray-400">ยังไม่มีบทสนทนา</div>
         )}
       </div>
+
+      {showUidSearch && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 animate-in zoom-in duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold">เริ่มแชทด้วย UID</h3>
+              <button onClick={() => setShowUidSearch(false)} className="text-gray-400"><X size={20}/></button>
+            </div>
+            <p className="text-xs text-gray-500">ใส่ UID ของเพื่อนเพื่อเริ่มการสนทนา</p>
+            <div>
+              <input 
+                type="text" 
+                placeholder="ระบุ UID ผู้ใช้..." 
+                className="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-500"
+                value={uidSearchInput}
+                onChange={e => setUidSearchInput(e.target.value)}
+              />
+              {searchError && <p className="text-red-500 text-[10px] mt-1 ml-1">{searchError}</p>}
+            </div>
+            <button 
+              onClick={startChatByUid}
+              className="w-full py-3 bg-pink-500 text-white rounded-xl font-bold shadow-lg shadow-pink-100"
+            >ค้นหาและเริ่มแชท</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
