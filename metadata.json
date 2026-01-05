@@ -1,0 +1,7 @@
+{
+  "name": "Sue AhHahn (ซื้ออาหาร)",
+  "description": "แพลตฟอร์มสั่งอาหารแบบเรียลไทม์ที่ผู้ใช้สามารถเป็นได้ทั้งผู้ซื้อและผู้ขาย พร้อมระบบแชท แจ้งเตือน และ Admin Dashboard",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
